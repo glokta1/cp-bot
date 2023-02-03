@@ -1,2 +1,4 @@
 jid_db
 wastore.db
+.ipynb_checkpoints/
+geckodriver.log
