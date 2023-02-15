@@ -2,20 +2,53 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
+	// "os/signal"
+	// "syscall"
 
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
-	"go.mau.fi/whatsmeow/binary/proto"	
-	"go.mau.fi/whatsmeow/types"
+
+	"go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
-	_ "github.com/mattn/go-sqlite3"	
-	"github.com/mdp/qrterminal/v3"	
 	waLog "go.mau.fi/whatsmeow/util/log"
+	"github.com/gocolly/colly"
 )
+
+
+type CodeforcesResponse struct {
+	Status string `json:"status"`
+	Result []struct {
+		ID                  int    `json:"id"`
+		Name                string `json:"name"`
+		Type                string `json:"type"`
+		Phase               string `json:"phase"`
+		DurationSeconds     int    `json:"durationSeconds"`
+		StartTimeSeconds    int    `json:"startTimeSeconds"`
+	} `json:"result"`
+}
+
+type JID struct {
+	User   string
+	Agent  uint8
+	Device uint8
+	Server string
+	AD     bool
+}
+
+type Contest struct {
+	Name string
+	Link string
+	Duration string
+	startTime int
+}
 
 func eventHandler(evt interface{}) {
 	switch v := evt.(type) {
@@ -24,7 +57,7 @@ func eventHandler(evt interface{}) {
 	}
 }
 
-func main() {
+func setupWAClient() *whatsmeow.Client {
 	container, err := sqlstore.New("sqlite3", "file:wastore.db?_foreign_keys=on", nil)
 	if err != nil {
 		panic(err)
@@ -63,33 +96,46 @@ func main() {
 		}
 	}
 
-	jid_raw := "918795927706-1634104315@g.us" 
-	jid, err := types.ParseJID(jid_raw)
+	return client
+}
+func main() {
+	getCFContests()
+
+	client := setupWAClient()
+
+	defer client.Disconnect()
+
+
+	var contests []Contest
+
+	jid_list := []string{"918795927706-1634104315@g.us"}
+	for _, jid_raw := range jid_list {
+		jid, err := types.ParseJID(jid_raw)
+		if err != nil {
+			fmt.Println("Couldn't parse jid string")
+		}
+
+		msgtext := "this better work"
+		msg := &proto.Message{Conversation: &msgtext,
+		}
+		client.SendMessage(context.Background(), jid, msg)
+	}
+	
+}
+
+func getCFContests() {
+	resp, err := http.Get("https://codeforces.com/api/contest.list")
 	if err != nil {
-		fmt.Println("Couldn't parse jid string")
+		fmt.Println("Couldn't get response from Codeforces API")
+	}
+	defer resp.Body.Close()
+	respBytes, err := io.ReadAll(resp.Body)
+
+	err = json.Unmarshal(respBytes, &contests)
+	if (err != nil) {
+		fmt.Println(err)
 	}
 
-	msgtext := "this better work"
-	msg := &proto.Message{
-		Conversation: &msgtext,
-	}
-	client.SendMessage(context.Background(), jid, msg)
-
-
-
-	// Listen to Ctrl+C (you can also do something else that prevents the program from exiting)
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
-
-	client.Disconnect()
 }
 
-type JID struct {
-	User   string
-	Agent  uint8
-	Device uint8
-	Server string
-	AD     bool
-}
 
