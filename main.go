@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+
 	// "os/signal"
 	// "syscall"
 
@@ -14,26 +15,12 @@ import (
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
 
-	"go.mau.fi/whatsmeow/binary/proto"
+	// "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store/sqlstore"
-	"go.mau.fi/whatsmeow/types"
+	// "go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
-	"github.com/gocolly/colly"
 )
-
-
-type CodeforcesResponse struct {
-	Status string `json:"status"`
-	Result []struct {
-		ID                  int    `json:"id"`
-		Name                string `json:"name"`
-		Type                string `json:"type"`
-		Phase               string `json:"phase"`
-		DurationSeconds     int    `json:"durationSeconds"`
-		StartTimeSeconds    int    `json:"startTimeSeconds"`
-	} `json:"result"`
-}
 
 type JID struct {
 	User   string
@@ -99,28 +86,44 @@ func setupWAClient() *whatsmeow.Client {
 	return client
 }
 func main() {
-	getCFContests()
+	// client := setupWAClient()
 
-	client := setupWAClient()
+	// defer client.Disconnect()
 
-	defer client.Disconnect()
+	fmt.Println("bruv what's going on")
 
+	// getUpcomingContests()
+
+	// jid_list := []string{"918795927706-1634104315@g.us"} 
+	// for _, jid_raw := range jid_list {jid, err := types.ParseJID(jid_raw)
+	// 	if err != nil {
+	// 		fmt.Println("Couldn't parse jid string")
+	// 	}
+
+	// 	msgtext := "this better work"
+	// 	msg := &proto.Message{Conversation: &msgtext,
+	// 	}
+	// 	client.SendMessage(context.Background(), jid, msg)
+	// }
+	
+}
+
+func getUpcomingContests() {
+	resp, err := http.Get("https://competeapi.vercel.app/contests/upcoming")
+	if err != nil {
+		fmt.Println("Couldn't retrieve upcoming contests")
+	}
+
+	defer resp.Body.Close()
+	respBytes, err := io.ReadAll(resp.Body)
 
 	var contests []Contest
-
-	jid_list := []string{"918795927706-1634104315@g.us"}
-	for _, jid_raw := range jid_list {
-		jid, err := types.ParseJID(jid_raw)
-		if err != nil {
-			fmt.Println("Couldn't parse jid string")
-		}
-
-		msgtext := "this better work"
-		msg := &proto.Message{Conversation: &msgtext,
-		}
-		client.SendMessage(context.Background(), jid, msg)
+	err = json.Unmarshal(respBytes, &contests)
+	if err != nil {
+		fmt.Println(err)
 	}
-	
+
+	fmt.Println(contests)
 }
 
 func getCFContests() {
